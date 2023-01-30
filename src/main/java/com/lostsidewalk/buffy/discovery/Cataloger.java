@@ -263,7 +263,7 @@ public class Cataloger {
         URL feedUrl = new URL(url);
         URLConnection feedConnection = feedUrl.openConnection();
         // TODO: make this property-configurable
-        String userAgent = "Lost Sidewalk FeedGears RSS Aggregator v.0.2 periodic feed catalog update";
+        String userAgent = "Lost Sidewalk FeedGears RSS Aggregator v.0.3 periodic feed catalog update";
         feedConnection.setRequestProperty("User-Agent", userAgent);
         return feedConnection.getInputStream().readAllBytes();
     }
