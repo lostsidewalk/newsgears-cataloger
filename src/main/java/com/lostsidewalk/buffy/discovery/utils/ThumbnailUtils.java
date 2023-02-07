@@ -9,6 +9,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 
 import static javax.imageio.ImageIO.createImageInputStream;
 import static javax.imageio.ImageIO.write;
@@ -19,8 +20,8 @@ import static org.imgscalr.Scalr.Mode.AUTOMATIC;
 public class ThumbnailUtils {
 
     public static byte[] getImage(String path, byte[] inputSrc, int targetSize) {
-        try {
-            ImageInputStream imageInputStream = createImageInputStream(new ByteArrayInputStream(inputSrc));
+        try (InputStream is = new ByteArrayInputStream(inputSrc)) {
+            ImageInputStream imageInputStream = createImageInputStream(is);
             return getImage(imageInputStream, targetSize);
         } catch (Exception e) {
             log.debug("Image decoding of path={} using failed due to: {}", path, e.getMessage());

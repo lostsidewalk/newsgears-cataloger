@@ -18,6 +18,7 @@ import org.springframework.boot.actuate.health.Health;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.time.Instant;
@@ -116,7 +117,8 @@ public class Cataloger {
                 }
             } catch (FeedDiscoveryException e) {
                 log.error("Something horrible happened while discovering URL={} due to: {}", discoverable.getFeedUrl(), e.getMessage());
-                discoverable.setError(e.exceptionType);
+                discoverable.setErrorType(e.exceptionType);
+                discoverable.setErrorDetail(e.getMessage());
                 discoverable.setHttpStatusCode(e.httpStatusCode);
                 discoverable.setHttpStatusMessage(e.httpStatusMessage);
                 discoverable.setRedirectFeedUrl(e.redirectUrl);
@@ -160,7 +162,7 @@ public class Cataloger {
                         ThumbnailedFeedDiscoveryImage feedIcon = addThumbnail(fd.getIcon());
                         ThumbnailedFeedDiscovery tfd = ThumbnailedFeedDiscovery.from(fd, feedImage, feedIcon);
                         persistFeedDiscoveryInfo(fd);
-                        if (fd.error == null) {
+                        if (fd.errorType == null) {
                             deployFeedDiscoveryInfo(tfd);
                         }
                         totalCt++;
@@ -263,13 +265,15 @@ public class Cataloger {
         URL feedUrl = new URL(url);
         URLConnection feedConnection = feedUrl.openConnection();
         // TODO: make this property-configurable
-        String userAgent = "Lost Sidewalk FeedGears RSS Aggregator v.0.3 periodic feed catalog update";
+        String userAgent = "Lost Sidewalk FeedGears RSS Aggregator v.0.4 periodic feed catalog update";
         feedConnection.setRequestProperty("User-Agent", userAgent);
-        return feedConnection.getInputStream().readAllBytes();
+        try (InputStream is = feedConnection.getInputStream()) {
+            return is.readAllBytes();
+        }
     }
 
     private void persistFeedDiscoveryInfo(FeedDiscoveryInfo feedDiscoveryInfo) throws DataAccessException, DataUpdateException {
-        log.debug("Persisting feed discovery info from URL={}, error={}", feedDiscoveryInfo.getFeedUrl(), feedDiscoveryInfo.getError());
+        log.debug("Persisting feed discovery info from URL={}, errorType={}, errorDetail={}", feedDiscoveryInfo.getFeedUrl(), feedDiscoveryInfo.getErrorType(), feedDiscoveryInfo.getErrorDetail());
         feedDiscoveryInfoDao.update(feedDiscoveryInfo);
     }
 
