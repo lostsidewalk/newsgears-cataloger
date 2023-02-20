@@ -67,6 +67,7 @@ public class Cataloger {
         //
         startDiscoveryProcessor();
         int processorCt = Runtime.getRuntime().availableProcessors() - 1;
+        processorCt = processorCt > 0 ? processorCt : 1;
         log.info("Starting discovery thread pool: processCount={}", processorCt);
         this.discoveryThreadPool = newFixedThreadPool(processorCt, new ThreadFactoryBuilder().setNameFormat("cataloger-%d").build());
     }
@@ -146,6 +147,8 @@ public class Cataloger {
     }
     //
     // discovery success processing
+    //
+    // TODO: this needs to be multi-threaded
     //
     private static final Logger discoveryProcessorLog = LoggerFactory.getLogger("discoveryProcessor");
     private void startDiscoveryProcessor() {
