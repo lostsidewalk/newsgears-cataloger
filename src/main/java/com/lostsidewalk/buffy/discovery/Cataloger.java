@@ -50,6 +50,9 @@ public class Cataloger {
     @Autowired
     RenderedThumbnailDao renderedThumbnailDao;
 
+    @Value("${newsgears.userAgent")
+    String feedGearsUserAgent;
+
     @Value("${newsgears.thumbnail.size}")
     int thumbnailSize;
 
@@ -93,7 +96,7 @@ public class Cataloger {
         log.info("Catalog update countdown latch size initialized to: {}", latch.getCount());
         currentCatalog.forEach(discoverable -> discoveryThreadPool.submit(() -> {
             try {
-                FeedDiscoveryInfo updated = discoverUrl(discoverable.getFeedUrl());
+                FeedDiscoveryInfo updated = discoverUrl(discoverable.getFeedUrl(), feedGearsUserAgent);
                 updated.setId(discoverable.getId());
                 if (isPermanentRedirect(updated.getHttpStatusCode())) {
                     log.info("Feed permanently redirected, old URL={}, new URL={}", updated.getFeedUrl(), updated.getRedirectFeedUrl());
