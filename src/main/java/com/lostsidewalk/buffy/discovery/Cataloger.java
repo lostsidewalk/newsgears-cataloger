@@ -29,7 +29,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import static com.lostsidewalk.buffy.discovery.FeedDiscoveryInfo.*;
+import static com.lostsidewalk.buffy.discovery.FeedDiscoveryInfo.FeedDiscoveryException;
+import static com.lostsidewalk.buffy.rss.RssDiscovery.*;
 import static java.util.Optional.ofNullable;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.apache.commons.collections4.CollectionUtils.isNotEmpty;
