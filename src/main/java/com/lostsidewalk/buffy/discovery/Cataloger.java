@@ -28,6 +28,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.zip.GZIPInputStream;
 
 import static com.lostsidewalk.buffy.discovery.FeedDiscoveryInfo.FeedDiscoveryException;
 import static com.lostsidewalk.buffy.rss.RssDiscovery.*;
@@ -274,8 +275,15 @@ public class Cataloger {
         // TODO: make this property-configurable
         String userAgent = "Lost Sidewalk FeedGears RSS Aggregator v.0.4 periodic feed catalog update";
         feedConnection.setRequestProperty("User-Agent", userAgent);
+        feedConnection.setRequestProperty("Accept-Encoding", "gzip");
         try (InputStream is = feedConnection.getInputStream()) {
-            return is.readAllBytes();
+            InputStream toRead;
+            if (containsIgnoreCase(feedConnection.getContentEncoding(), "gzip")) {
+                toRead = new GZIPInputStream(is);
+            } else {
+                toRead = is;
+            }
+            return toRead.readAllBytes();
         }
     }
 
