@@ -1,13 +1,12 @@
 package com.lostsidewalk.buffy.discovery;
 
+import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.lostsidewalk.buffy.DataAccessException;
 import com.lostsidewalk.buffy.DataUpdateException;
 import com.lostsidewalk.buffy.RenderedCatalogDao;
 import com.lostsidewalk.buffy.RenderedThumbnailDao;
-import com.lostsidewalk.buffy.discovery.utils.ThumbnailUtils;
 import com.lostsidewalk.buffy.model.RenderedFeedDiscoveryInfo;
-import com.lostsidewalk.buffy.model.RenderedThumbnail;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -21,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.Charset;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -32,8 +32,10 @@ import java.util.zip.GZIPInputStream;
 
 import static com.lostsidewalk.buffy.discovery.FeedDiscoveryInfo.FeedDiscoveryException;
 import static com.lostsidewalk.buffy.rss.RssDiscovery.*;
-import static java.util.Optional.ofNullable;
+import static java.net.URLEncoder.encode;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static org.apache.commons.codec.binary.Base64.encodeBase64URLSafeString;
 import static org.apache.commons.collections4.CollectionUtils.isNotEmpty;
 import static org.apache.commons.collections4.CollectionUtils.size;
 import static org.apache.commons.lang3.StringUtils.*;
@@ -54,9 +56,6 @@ public class Cataloger {
 
     @Value("${newsgears.userAgent")
     String feedGearsUserAgent;
-
-    @Value("${newsgears.thumbnail.size}")
-    int thumbnailSize;
 
     private final BlockingQueue<FeedDiscoveryInfo> discoveryQueue = new LinkedBlockingQueue<>();
 
@@ -166,13 +165,21 @@ public class Cataloger {
                     logForeignMarkup(fd);
                     logRedirect(fd);
                     try {
-                        ThumbnailedFeedDiscoveryImage feedImage = addThumbnail(fd.getImage());
-                        ThumbnailedFeedDiscoveryImage feedIcon = addThumbnail(fd.getIcon());
+                        //
+                        FeedDiscoveryImageInfo feedImage = fd.getImage();
+                        secureFeedDiscoveryImageInfo(feedImage);
+                        //
+                        FeedDiscoveryImageInfo feedIcon = fd.getIcon();
+                        secureFeedDiscoveryImageInfo(feedIcon);
+                        //
                         ThumbnailedFeedDiscovery tfd = ThumbnailedFeedDiscovery.from(fd, feedImage, feedIcon);
+                        //
                         persistFeedDiscoveryInfo(fd);
+                        //
                         if (fd.errorType == null) {
                             deployFeedDiscoveryInfo(tfd);
                         }
+                        //
                         totalCt++;
                     } catch (Exception e) {
                         discoveryProcessorLog.error("Something horrible happened while performing discovery on URL={}: {}", fd.getFeedUrl(), e.getMessage());
@@ -184,6 +191,29 @@ public class Cataloger {
             }
         });
         this.discoveryProcessor.start();
+    }
+
+    private void secureFeedDiscoveryImageInfo(FeedDiscoveryImageInfo feedDiscoveryImageInfo) {
+        if (feedDiscoveryImageInfo != null) {
+            feedDiscoveryImageInfo.setUrl(
+                    rewriteImageUrl(feedDiscoveryImageInfo.getUrl()));
+        }
+    }
+
+    @Value("${newsgears.imageProxyUrlTemplate}")
+    String imageProxyUrlTemplate;
+
+    private String rewriteImageUrl(String imgUrl) {
+        if (startsWith(imgUrl, "http")) {
+            String imgToken = encodeBase64URLSafeString(sha256(imgUrl, UTF_8).getBytes()); // SHA-256 + B64 the URL
+            return String.format(this.imageProxyUrlTemplate, strip(imgToken, "="), encode(imgUrl, UTF_8));
+        }
+
+        return EMPTY;
+    }
+
+    public static String sha256(String str, Charset charset) {
+        return Hashing.sha256().hashString(str, charset).toString();
     }
 
     private void logForeignMarkup(FeedDiscoveryInfo feedDiscoveryInfo) {
@@ -209,64 +239,6 @@ public class Cataloger {
                     isPermanentRedirect(httpStatusCode)
             );
         }
-    }
-
-    private ThumbnailedFeedDiscoveryImage addThumbnail(FeedDiscoveryImageInfo imageInfo) throws DataAccessException {
-        if (imageInfo != null) {
-            byte[] image = buildThumbnail(imageInfo);
-            return image == null ? null : ThumbnailedFeedDiscoveryImage.from(imageInfo, image);
-        }
-
-        return null;
-    }
-
-    private byte[] buildThumbnail(FeedDiscoveryImageInfo imageInfo) throws DataAccessException {
-        if (isNotBlank(imageInfo.getUrl())) {
-            String transportIdent = imageInfo.getTransportIdent();
-            byte[] image = ofNullable(getThumbnail(transportIdent)).map(RenderedThumbnail::getImage).orElse(null);
-            if (image == null) {
-                image = ofNullable(refreshThumbnail(transportIdent, imageInfo.getUrl()))
-                        .map(RenderedThumbnail::getImage)
-                        .orElse(null);
-            }
-            return image;
-        }
-
-        return null;
-    }
-
-    private RenderedThumbnail getThumbnail(String transportIdent) throws DataAccessException {
-        if (isBlank(transportIdent)) {
-            return null;
-        }
-        log.debug("Attempting to locate thumbnail at transportIdent={}", transportIdent);
-        RenderedThumbnail thumbnail = renderedThumbnailDao.findThumbnailByTransportIdent(transportIdent);
-        if (thumbnail != null) {
-            log.debug("Thumbnail located at transportIdent={}", transportIdent);
-        } else {
-            log.debug("Unable to locate thumbnail at transportIdent={}", transportIdent);
-        }
-
-        return thumbnail;
-    }
-
-    private RenderedThumbnail refreshThumbnail(String transportIdent, String imgUrl) {
-        log.info("Refreshing thumbnail cache, imgUrl={} @ transportIdent={}", imgUrl, transportIdent);
-        RenderedThumbnail thumbnail = null;
-        try {
-            byte[] imageBytes = ThumbnailUtils.getImage(imgUrl, fetch(imgUrl), this.thumbnailSize);
-            if (imageBytes == null) {
-                log.error("Failed to decode image at imgUrl={} @ transportIdent={} due to unknown format", imgUrl, transportIdent);
-            }
-            thumbnail = RenderedThumbnail.from(transportIdent, imageBytes);
-            renderedThumbnailDao.putThumbnailAtTransportIdent(transportIdent, thumbnail);
-            log.debug("Thumbnail cache updated for imgUrl={} @ transportIdent={}", imgUrl, transportIdent);
-        } catch (Exception e) {
-            log.warn("Failed to update thumbnail cache for imgUrl={} @ transportIdent={} due to: {}",
-                    imgUrl, transportIdent, e.getMessage());
-        }
-
-        return thumbnail;
     }
 
     private byte[] fetch(String url) throws IOException {

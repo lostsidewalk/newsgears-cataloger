@@ -26,9 +26,9 @@ dependencies {
     implementation 'org.slf4j:slf4j-api:2.0.5'
 
     // spring-boot-starter-actuator
-    implementation 'org.springframework.boot:spring-boot-starter-actuator:3.0.1'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator:3.0.4'
     // jackson-annotations
-    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.14.1'
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.14.2'
     // commons-collections4
     implementation 'org.apache.commons:commons-collections4:4.4'
     // commons-lang
@@ -45,13 +45,13 @@ dependencies {
     implementation 'org.apache.httpcomponents:httpclient:4.5.14'
 
     // postgresql driver
-    runtimeOnly 'org.postgresql:postgresql:42.5.1'
+    runtimeOnly 'org.postgresql:postgresql:42.5.4'
 
     // lombok
-    compileOnly 'org.projectlombok:lombok:1.18.24'
-    annotationProcessor 'org.projectlombok:lombok:1.18.24'
-    testCompileOnly 'org.projectlombok:lombok:1.18.24'
-    testAnnotationProcessor 'org.projectlombok:lombok:1.18.24'
+    compileOnly 'org.projectlombok:lombok:1.18.26'
+    annotationProcessor 'org.projectlombok:lombok:1.18.26'
+    testCompileOnly 'org.projectlombok:lombok:1.18.26'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.26'
 }
 
 publishing {
