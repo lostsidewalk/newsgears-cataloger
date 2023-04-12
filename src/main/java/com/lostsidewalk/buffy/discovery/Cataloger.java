@@ -172,7 +172,7 @@ public class Cataloger {
                         FeedDiscoveryImageInfo feedIcon = fd.getIcon();
                         secureFeedDiscoveryImageInfo(feedIcon);
                         //
-                        ThumbnailedFeedDiscovery tfd = ThumbnailedFeedDiscovery.from(fd, feedImage, feedIcon);
+                        ThumbnailedFeedDiscovery tfd = ThumbnailedFeedDiscovery.from(fd, feedImage, feedIcon, null);
                         //
                         persistFeedDiscoveryInfo(fd);
                         //
