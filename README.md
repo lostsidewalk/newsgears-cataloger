@@ -73,7 +73,7 @@ newsgears-cataloger is a Java 19 library package, built with the following depen
 
 API Dependencies:
 <ul>
-    <li>com.lostsidewalk.newsgears:newsgears-cataloger</li>
+    <li>com.lostsidewalk.newsgears:newsgears-data</li>
 </ul>
 
 Implementation Dependencies:
