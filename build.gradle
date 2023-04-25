@@ -5,11 +5,17 @@ plugins {
 
 apply plugin: 'java'
 apply plugin: 'java-library'
+apply plugin: 'signing'
+
+group = 'com.lostsidewalk.newsgears'
+version = '0.5'
 
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(19)
     }
+    withJavadocJar()
+    withSourcesJar()
 }
 
 repositories {
@@ -19,8 +25,8 @@ repositories {
 }
 
 dependencies {
-    api 'com.lostsidewalk.newsgears:newsgears-data:0.4'
-    implementation 'com.lostsidewalk.newsgears:newsgears-rss-importer:0.4'
+    api 'com.lostsidewalk.newsgears:newsgears-data:0.5.0'
+    implementation 'com.lostsidewalk.newsgears:newsgears-rss-importer:0.5.0'
 
     // SLF4J
     implementation 'org.slf4j:slf4j-api:2.0.5'
@@ -28,7 +34,7 @@ dependencies {
     // spring-boot-starter-actuator
     implementation 'org.springframework.boot:spring-boot-starter-actuator:3.0.4'
     // jackson-annotations
-    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.14.2'
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.15.0'
     // commons-collections4
     implementation 'org.apache.commons:commons-collections4:4.4'
     // commons-lang
@@ -56,12 +62,61 @@ dependencies {
 
 publishing {
     publications {
-        maven(MavenPublication) {
-            groupId = 'com.lostsidewalk.newsgears'
+        mavenJava(MavenPublication) {
             artifactId = 'newsgears-cataloger'
-            version = '0.4'
-
             from components.java
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+            pom {
+                name = 'newsgears-cataloger'
+                description = 'This module contains the FeedGears RSS platform cataloger component.'
+                url = 'https://www.lostsidewalk.com/dev/newsgears-cataloger'
+                licenses {
+                    license {
+                        name = 'GNU General Public License'
+                        url = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'elderscrollsjesus'
+                        name = 'Michael Harris'
+                        email = 'meh@lostsidewalk.com'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:https://github.com/lostsidewalk/newsgears-cataloger.git'
+                    developerConnection = 'scm:git:https://github.com/lostsidewalk/newsgears-cataloger.git'
+                    url = 'https://www.lostsidewalk.com/dev/newsgears-cataloger'
+                }
+            }
         }
+    }
+    repositories {
+        maven {
+            def releasesRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/releases'
+            def snapshotsRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots'
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials {
+                username = ossrhUsername
+                password = ossrhPassword
+            }
+        }
+    }
+}
+
+signing {
+    sign publishing.publications.mavenJava
+}
+
+javadoc {
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
     }
 }
