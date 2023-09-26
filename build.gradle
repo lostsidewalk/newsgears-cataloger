@@ -8,7 +8,7 @@ apply plugin: 'java-library'
 apply plugin: 'signing'
 
 group = 'com.lostsidewalk.newsgears'
-version = '0.5.3'
+version = '0.5.4'
 
 java {
     toolchain {
@@ -25,8 +25,8 @@ repositories {
 }
 
 dependencies {
-    api 'com.lostsidewalk.newsgears:newsgears-data:0.5.7'
-    implementation 'com.lostsidewalk.newsgears:newsgears-rss-importer:0.5.4'
+    api 'com.lostsidewalk.newsgears:newsgears-data:0.5.8'
+    implementation 'com.lostsidewalk.newsgears:newsgears-rss-importer:0.5.5'
 
     // SLF4J
     implementation 'org.slf4j:slf4j-api:2.0.5'
