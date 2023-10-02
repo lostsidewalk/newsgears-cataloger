@@ -40,6 +40,9 @@ import static org.apache.commons.collections4.CollectionUtils.isNotEmpty;
 import static org.apache.commons.collections4.CollectionUtils.size;
 import static org.apache.commons.lang3.StringUtils.*;
 
+/**
+ * This class is responsible for cataloging and processing feed discovery information.
+ */
 @SuppressWarnings("unused")
 @Slf4j
 @Component
@@ -63,6 +66,16 @@ public class Cataloger {
 
     private ExecutorService discoveryThreadPool;
 
+    /**
+     * Default constructor; initializes the object.
+     */
+    Cataloger() {
+        super();
+    }
+
+    /**
+     * Initializes the cataloger and starts the discovery processor.
+     */
     @PostConstruct
     public void postConstruct() {
         log.info("Cataloger constructed");
@@ -76,6 +89,11 @@ public class Cataloger {
         this.discoveryThreadPool = newFixedThreadPool(processorCt, new ThreadFactoryBuilder().setNameFormat("cataloger-%d").build());
     }
 
+    /**
+     * Check the health of the cataloger.
+     *
+     * @return A Health object indicating the health status of the cataloger.
+     */
     @SuppressWarnings("unused")
     public Health health() {
         boolean processorIsRunning = this.discoveryProcessor.isAlive();
@@ -91,6 +109,11 @@ public class Cataloger {
         }
     }
 
+    /**
+     * Update the catalog by discovering new feeds and updating existing ones.
+     *
+     * @throws DataAccessException If there is an issue accessing data.
+     */
     public void update() throws DataAccessException {
         List<FeedDiscoveryInfo> currentCatalog = feedDiscoveryInfoDao.findDiscoverable();
         CountDownLatch latch = new CountDownLatch(size(currentCatalog));
@@ -212,6 +235,13 @@ public class Cataloger {
         return EMPTY;
     }
 
+    /**
+     * Computes the SHA-256 hash of a string.
+     *
+     * @param str     The input string to be hashed.
+     * @param charset The character encoding for the input string.
+     * @return The SHA-256 hash of the input string.
+     */
     public static String sha256(String str, Charset charset) {
         return Hashing.sha256().hashString(str, charset).toString();
     }
