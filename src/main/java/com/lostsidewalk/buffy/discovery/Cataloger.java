@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
-import java.nio.charset.Charset;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -43,7 +42,7 @@ import static org.apache.commons.lang3.StringUtils.*;
 /**
  * This class is responsible for cataloging and processing feed discovery information.
  */
-@SuppressWarnings("unused")
+@SuppressWarnings({"unused", "ClassWithMultipleLoggers"})
 @Slf4j
 @Component
 public class Cataloger {
@@ -70,14 +69,13 @@ public class Cataloger {
      * Default constructor; initializes the object.
      */
     Cataloger() {
-        super();
     }
 
     /**
      * Initializes the cataloger and starts the discovery processor.
      */
     @PostConstruct
-    public void postConstruct() {
+    public final void postConstruct() {
         log.info("Cataloger constructed");
         //
         // start thread process successful imports
@@ -86,7 +84,7 @@ public class Cataloger {
         int processorCt = Runtime.getRuntime().availableProcessors() - 1;
         processorCt = processorCt > 0 ? processorCt : 1;
         log.info("Starting discovery thread pool: processCount={}", processorCt);
-        this.discoveryThreadPool = newFixedThreadPool(processorCt, new ThreadFactoryBuilder().setNameFormat("cataloger-%d").build());
+        discoveryThreadPool = newFixedThreadPool(processorCt, new ThreadFactoryBuilder().setNameFormat("cataloger-%d").build());
     }
 
     /**
@@ -95,9 +93,9 @@ public class Cataloger {
      * @return A Health object indicating the health status of the cataloger.
      */
     @SuppressWarnings("unused")
-    public Health health() {
-        boolean processorIsRunning = this.discoveryProcessor.isAlive();
-        boolean discoveryPoolIsShutdown = this.discoveryThreadPool.isShutdown();
+    public final Health health() {
+        boolean processorIsRunning = discoveryProcessor.isAlive();
+        boolean discoveryPoolIsShutdown = discoveryThreadPool.isShutdown();
 
         if (processorIsRunning && !discoveryPoolIsShutdown) {
             return Health.up().build();
@@ -114,7 +112,7 @@ public class Cataloger {
      *
      * @throws DataAccessException If there is an issue accessing data.
      */
-    public void update() throws DataAccessException {
+    public final void update() throws DataAccessException {
         List<FeedDiscoveryInfo> currentCatalog = feedDiscoveryInfoDao.findDiscoverable();
         CountDownLatch latch = new CountDownLatch(size(currentCatalog));
         log.info("Catalog update countdown latch size initialized to: {}", latch.getCount());
@@ -155,7 +153,7 @@ public class Cataloger {
                 if (!discoveryQueue.offer(discoverable)) {
                     log.warn("Discovery queue is at capacity; updates are being dropped");
                 }
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 log.error("Something unusually horrible happened while discovering URL={} due to: {}", discoverable.getFeedUrl(), e.getMessage());
                 if (!discoveryQueue.offer(discoverable)) {
                     log.warn("Discovery queue is at capacity; updates are being dropped");
@@ -180,7 +178,7 @@ public class Cataloger {
     private static final Logger discoveryProcessorLog = LoggerFactory.getLogger("discoveryProcessor");
     private void startDiscoveryProcessor() {
         log.info("Starting discovery processor at {}", Instant.now());
-        this.discoveryProcessor = new Thread(() -> {
+        discoveryProcessor = new Thread(() -> {
             int totalCt = 0;
             while (true) {
                 try {
@@ -204,7 +202,7 @@ public class Cataloger {
                         }
                         //
                         totalCt++;
-                    } catch (Exception e) {
+                    } catch (DataAccessException | DataUpdateException | RuntimeException e) {
                         discoveryProcessorLog.error("Something horrible happened while performing discovery on URL={}: {}", fd.getFeedUrl(), e.getMessage());
                     }
                 } catch (InterruptedException ignored) {
@@ -213,7 +211,7 @@ public class Cataloger {
                 discoveryProcessorLog.debug("Discovery processor metrics: total={}", totalCt);
             }
         });
-        this.discoveryProcessor.start();
+        discoveryProcessor.start();
     }
 
     private void secureFeedDiscoveryImageInfo(FeedDiscoveryImageInfo feedDiscoveryImageInfo) {
@@ -228,25 +226,18 @@ public class Cataloger {
 
     private String rewriteImageUrl(String imgUrl) {
         if (startsWith(imgUrl, "http")) {
-            String imgToken = encodeBase64URLSafeString(sha256(imgUrl, UTF_8).getBytes()); // SHA-256 + B64 the URL
-            return String.format(this.imageProxyUrlTemplate, strip(imgToken, "="), encode(imgUrl, UTF_8));
+            String imgToken = encodeBase64URLSafeString(sha256(imgUrl).getBytes(UTF_8)); // SHA-256 + B64 the URL
+            return String.format(imageProxyUrlTemplate, strip(imgToken, "="), encode(imgUrl, UTF_8));
         }
 
         return EMPTY;
     }
 
-    /**
-     * Computes the SHA-256 hash of a string.
-     *
-     * @param str     The input string to be hashed.
-     * @param charset The character encoding for the input string.
-     * @return The SHA-256 hash of the input string.
-     */
-    public static String sha256(String str, Charset charset) {
-        return Hashing.sha256().hashString(str, charset).toString();
+    private static String sha256(String str) {
+        return Hashing.sha256().hashString(str, UTF_8).toString();
     }
 
-    private void logForeignMarkup(FeedDiscoveryInfo feedDiscoveryInfo) {
+    private static void logForeignMarkup(FeedDiscoveryInfo feedDiscoveryInfo) {
         List<String> feedForeignMarkupStrs = feedDiscoveryInfo.getFeedForeignMarkupStrs();
         Set<String> postForeignMarkupStrs = feedDiscoveryInfo.getPostForeignMarkupStrs();
         if (isNotEmpty(feedForeignMarkupStrs) || isNotEmpty(postForeignMarkupStrs)) {
@@ -256,7 +247,7 @@ public class Cataloger {
         }
     }
 
-    private void logRedirect(FeedDiscoveryInfo feedDiscoveryInfo) {
+    private static void logRedirect(FeedDiscoveryInfo feedDiscoveryInfo) {
         Integer httpStatusCode = feedDiscoveryInfo.getHttpStatusCode();
         if (httpStatusCode != null && isRedirect(httpStatusCode)) {
             log.info("Discovery redirected: feedUrl={}, httpStatusCode={}, httpStatusMessage={}, redirectUrl={}, redirectHttpStatusCode={}, redirectHttpStatusMessage={}, isPermanent={}",
@@ -271,11 +262,12 @@ public class Cataloger {
         }
     }
 
-    private byte[] fetch(String url) throws IOException {
+    @SuppressWarnings("OverlyBroadThrowsClause") // MalformedURLException extends IOException
+    private static byte[] fetch(String url) throws IOException {
         URL feedUrl = new URL(url);
         URLConnection feedConnection = feedUrl.openConnection();
         // TODO: make this property-configurable
-        String userAgent = "Lost Sidewalk FeedGears RSS Aggregator v.0.4 periodic feed catalog update";
+        String userAgent = "Lost Sidewalk FeedGears RSS Aggregator periodic feed catalog update";
         feedConnection.setRequestProperty("User-Agent", userAgent);
         feedConnection.setRequestProperty("Accept-Encoding", "gzip");
         try (InputStream is = feedConnection.getInputStream()) {
@@ -285,7 +277,9 @@ public class Cataloger {
             } else {
                 toRead = is;
             }
-            return toRead.readAllBytes();
+            byte[] allBytes = toRead.readAllBytes();
+            toRead.close();
+            return allBytes;
         }
     }
 
@@ -297,5 +291,19 @@ public class Cataloger {
     private void deployFeedDiscoveryInfo(ThumbnailedFeedDiscovery thumbnailedFeedDiscovery) throws DataAccessException {
         log.debug("Deploying feed discovery info from URL={}", thumbnailedFeedDiscovery.getFeedUrl());
         renderedCatalogDao.update(RenderedFeedDiscoveryInfo.from(thumbnailedFeedDiscovery));
+    }
+
+    @Override
+    public final String toString() {
+        return "Cataloger{" +
+                "feedDiscoveryInfoDao=" + feedDiscoveryInfoDao +
+                ", renderedCatalogDao=" + renderedCatalogDao +
+                ", renderedThumbnailDao=" + renderedThumbnailDao +
+                ", feedGearsUserAgent='" + feedGearsUserAgent + '\'' +
+                ", discoveryQueue=" + discoveryQueue +
+                ", discoveryProcessor=" + discoveryProcessor +
+                ", discoveryThreadPool=" + discoveryThreadPool +
+                ", imageProxyUrlTemplate='" + imageProxyUrlTemplate + '\'' +
+                '}';
     }
 }
